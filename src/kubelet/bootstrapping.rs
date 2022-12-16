@@ -13,13 +13,8 @@ use tracing::info;
 
 const APPROVED_TYPE: &str = "Approved";
 
-pub async fn bootstrap() {
-    let kubeconfig = Config::infer().await.map_err(|e| anyhow::anyhow!("Unable to load config from host: {}", e)).expect("TODO: panic message");
-    bootstrap_tls(kubeconfig.clone()).await.expect("TODO: panic message");
-}
 
-
-async fn bootstrap_tls(kubeconfig: Config) -> anyhow::Result<()> {
+pub async fn bootstrap_tls(kubeconfig: Config) -> anyhow::Result<()> {
     let cert_bundle = gen_tls_cert()?;
     let csr_name = format!("{}-tls", "my-imac");
     let client = kube::Client::try_from(kubeconfig)?;
