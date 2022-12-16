@@ -82,11 +82,10 @@ async fn bootstrap_tls(kubeconfig: Config) -> anyhow::Result<()> {
         ));
     }
     let private_key = cert_bundle.serialize_private_key_pem();
-    let path = Path::new("./mykey.crt");
-    let _key = Path::new("./mykey.key");
-    write(&path, &certificate).await?;
-    println!("{}", private_key.as_str());
-
+    let cert_file = Path::new("./mycert.crt");
+    let key_file = Path::new("./mycert.key");
+    write(&cert_file, &certificate).await?;
+    write(&key_file, &private_key).await?;
     Ok(())
 }
 
