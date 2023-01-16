@@ -25,6 +25,8 @@ impl Kubelet {
                 info!("节点已经存在,更新租约");
                 let uid = self.uid(&client.clone(), "my-imac").await;
                 self.update(&uid, "my-imac").await.expect("TODO: panic message");
+                self.update_status("my-imac", &client.clone()).await.expect("TODO: panic message");
+
                 return;
             }
             Err(Error::Api(ErrorResponse { code: 404, .. })) => {
@@ -37,6 +39,33 @@ impl Kubelet {
             );
             }
         }
+    }
+
+    async fn update_status(&self, node_name: &str, client: &kube::Client) -> anyhow::Result<()> {
+        let status_patch = serde_json::json!({
+        "status": {
+            "conditions": [
+                {
+                    "lastHeartbeatTime": Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Micros, true),
+                    "message": "kubelet is posting ready status",
+                    "reason": "KubeletReady",
+                    "status": "True",
+                    "type": "Ready"
+                }
+            ],
+        }
+    });
+        let node_client: Api<KubeNode> = Api::all(client.clone());
+        let _node = node_client
+            .patch_status(
+                node_name,
+                &PatchParams::default(),
+                &kube::api::Patch::Strategic(status_patch),
+            )
+            .await
+            .map_err(|e| anyhow::anyhow!("Unable to patch node status: {}", e))?;
+        info!("更新状态成功");
+        Ok(())
     }
 
     async fn create(&self) {
