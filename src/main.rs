@@ -4,6 +4,7 @@ use tracing::*;
 
 mod kubelet;
 mod nodemod;
+mod provider;
 
 #[tokio::main(flavor = "multi_thread")]
 async fn main() {
