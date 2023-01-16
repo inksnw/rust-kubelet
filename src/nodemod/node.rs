@@ -42,7 +42,18 @@ impl Builder {
             taints: Some(self.taints),
             ..Default::default()
         };
+
+        let node_info = k8s_openapi::api::core::v1::NodeSystemInfo {
+            architecture: self.architecture,
+            kube_proxy_version: self.kube_proxy_version,
+            kubelet_version: self.kubelet_version,
+            container_runtime_version: self.container_runtime_version,
+            operating_system: self.operating_system,
+            ..Default::default()
+        };
+
         let status = k8s_openapi::api::core::v1::NodeStatus {
+            node_info: Some(node_info),
             capacity: Some(self.capacity),
             allocatable: Some(self.allocatable),
             daemon_endpoints: Some(k8s_openapi::api::core::v1::NodeDaemonEndpoints {
