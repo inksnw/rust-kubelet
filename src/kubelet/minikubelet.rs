@@ -28,7 +28,7 @@ impl Kubelet {
         let node = builder.build().into_inner();
 
         node_client.create(&PostParams::default(), &node).await.expect("TODO: panic message");
-        let node_uid = node.metadata.uid.unwrap();
+        let node_uid = "fced67d4-e649-41c3-943a-cc6a43fcdf41".to_string();
         create_lease(&node_uid, "my-imac", &client).await;
         info!("Successfully created node");
     }
