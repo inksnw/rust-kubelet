@@ -1,3 +1,5 @@
+use std::{thread, time};
+
 use chrono::Utc;
 use k8s_openapi::api::coordination::v1::Lease;
 use k8s_openapi::api::core::v1::Node as KubeNode;
@@ -24,13 +26,12 @@ impl Kubelet {
             Ok(_) => {
                 info!("节点已经存在,更新租约");
                 let uid = self.uid(&client.clone(), "my-imac").await;
-                self.update(&uid, "my-imac").await.expect("TODO: panic message");
-                self.update_status("my-imac", &client.clone()).await.expect("TODO: panic message");
-
-                return;
+                self.update(uid.as_str(), "my-imac").await;
             }
             Err(Error::Api(ErrorResponse { code: 404, .. })) => {
                 self.create().await;
+                let uid = self.uid(&client.clone(), "my-imac").await;
+                self.update(uid.as_str(), "my-imac").await;
             }
             Err(e) => {
                 error!(
@@ -76,6 +77,7 @@ impl Kubelet {
         builder.add_annotation("node.alpha.kubernetes.io/ttl", "0");
         builder.add_annotation("volumes.kubernetes.io/controller-managed-attach-detach", "true");
         builder.add_label("kubernetes.io/hostname", "my-imac");
+        builder.add_label("node-role.kubernetes.io/worker", "");
         builder.add_capacity("cpu", "4");
 
         let node = builder.build().into_inner();
@@ -102,8 +104,17 @@ impl Kubelet {
         node.metadata.uid.unwrap()
     }
 
+    async fn update(&self, node_uid: &str, node_name: &str) {
+        let client = kube::Client::try_from(self.kube_config.clone()).unwrap();
+        loop {
+            self.update_lease(&node_uid, node_name).await.expect("TODO: panic message");
+            self.update_status(node_name, &client.clone()).await.expect("TODO: panic message");
+            thread::sleep(time::Duration::from_secs(20));
+        }
+    }
 
-    async fn update(&self, node_uid: &str, node_name: &str) -> Result<Lease, Error> {
+
+    async fn update_lease(&self, node_uid: &str, node_name: &str) -> Result<Lease, Error> {
         let client = kube::Client::try_from(self.kube_config.clone()).unwrap();
         let leases: Api<Lease> = Api::namespaced(client.clone(), "kube-node-lease");
         let lease = lease_definition(node_uid, node_name);
