@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use std::{convert::TryFrom, path::Path, str};
 use std::net;
 

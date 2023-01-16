@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use std::collections::BTreeMap;
 
 use k8s_openapi::api::core::v1::Node as KubeNode;

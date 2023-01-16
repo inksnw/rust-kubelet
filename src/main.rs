@@ -17,7 +17,7 @@ async fn main() {
         .map_err(|e| anyhow::anyhow!("Unable to load config from host: {}", e))
         .expect("TODO: panic message");
     //生成证书
-    kubelet::bootstrapping::bootstrap_tls(local_config.clone()).await.expect("TODO: panic message");
+    // kubelet::bootstrapping::bootstrap_tls(local_config.clone()).await.expect("TODO: panic message");
 
     let kubelet_ins = kubelet::minikubelet::Kubelet::new(local_config).await;
     kubelet_ins.start().await;
