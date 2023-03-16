@@ -104,7 +104,7 @@ impl Default for Builder {
             taints: vec![],
             architecture: "".to_string(),
             kube_proxy_version: "v1.17.0".to_string(),
-            kubelet_version: "v1.23.11".to_string(),
+            kubelet_version: "v1.24.7".to_string(),
             container_runtime_version: "mvp".to_string(),
             operating_system: "linux".to_string(),
             capacity: BTreeMap::new(),

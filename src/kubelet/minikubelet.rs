@@ -4,9 +4,9 @@ use chrono::Utc;
 use k8s_openapi::api::coordination::v1::Lease;
 use k8s_openapi::api::core::v1::Node as KubeNode;
 use kube::api::{Api, PatchParams, PostParams};
-use kube::Error;
 use kube::error::ErrorResponse;
-use tracing::{error, info};
+use kube::Error;
+use tracing::{debug, error, info};
 
 use crate::nodemod;
 
@@ -35,27 +35,27 @@ impl Kubelet {
             }
             Err(e) => {
                 error!(
-                error = %e,
-                "Exhausted retries when trying to talk to API. Not retrying"
-            );
+                    error = %e,
+                    "Exhausted retries when trying to talk to API. Not retrying"
+                );
             }
         }
     }
 
     async fn update_status(&self, node_name: &str, client: &kube::Client) -> anyhow::Result<()> {
         let status_patch = serde_json::json!({
-        "status": {
-            "conditions": [
-                {
-                    "lastHeartbeatTime": Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Micros, true),
-                    "message": "kubelet is posting ready status",
-                    "reason": "KubeletReady",
-                    "status": "True",
-                    "type": "Ready"
-                }
-            ],
-        }
-    });
+            "status": {
+                "conditions": [
+                    {
+                        "lastHeartbeatTime": Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Micros, true),
+                        "message": "kubelet is posting ready status",
+                        "reason": "KubeletReady",
+                        "status": "True",
+                        "type": "Ready"
+                    }
+                ],
+            }
+        });
         let node_client: Api<KubeNode> = Api::all(client.clone());
         let _node = node_client
             .patch_status(
@@ -65,7 +65,7 @@ impl Kubelet {
             )
             .await
             .map_err(|e| anyhow::anyhow!("Unable to patch node status: {}", e))?;
-        info!("更新状态成功");
+        // info!("更新状态成功");
         Ok(())
     }
 
@@ -75,7 +75,10 @@ impl Kubelet {
         let mut builder = nodemod::node::Node::builder();
         builder.set_name("my-imac");
         builder.add_annotation("node.alpha.kubernetes.io/ttl", "0");
-        builder.add_annotation("volumes.kubernetes.io/controller-managed-attach-detach", "true");
+        builder.add_annotation(
+            "volumes.kubernetes.io/controller-managed-attach-detach",
+            "true",
+        );
         builder.add_label("kubernetes.io/hostname", "my-imac");
         builder.add_label("node-role.kubernetes.io/worker", "");
         builder.add_capacity("cpu", "4");
@@ -90,9 +93,9 @@ impl Kubelet {
             }
             Err(e) => {
                 error!(
-                error = %e,
-                "Exhausted retries creating node after failed create. Not retrying"
-            );
+                    error = %e,
+                    "Exhausted retries creating node after failed create. Not retrying"
+                );
                 return;
             }
         }
@@ -107,23 +110,29 @@ impl Kubelet {
     async fn update(&self, node_uid: &str, node_name: &str) {
         let client = kube::Client::try_from(self.kube_config.clone()).unwrap();
         loop {
-            self.update_lease(&node_uid, node_name).await.expect("TODO: panic message");
-            self.update_status(node_name, &client.clone()).await.expect("TODO: panic message");
+            self.update_lease(&node_uid, node_name)
+                .await
+                .expect("TODO: panic message");
+            self.update_status(node_name, &client.clone())
+                .await
+                .expect("TODO: panic message");
             thread::sleep(time::Duration::from_secs(20));
         }
     }
-
 
     async fn update_lease(&self, node_uid: &str, node_name: &str) -> Result<Lease, Error> {
         let client = kube::Client::try_from(self.kube_config.clone()).unwrap();
         let leases: Api<Lease> = Api::namespaced(client.clone(), "kube-node-lease");
         let lease = lease_definition(node_uid, node_name);
-        let resp = leases.patch(
-            node_name,
-            &PatchParams::default(),
-            &kube::api::Patch::Strategic(lease)).await;
+        let resp = leases
+            .patch(
+                node_name,
+                &PatchParams::default(),
+                &kube::api::Patch::Strategic(lease),
+            )
+            .await;
         match &resp {
-            Ok(_) => info!("租约更新成功"),
+            Ok(_) => debug!("租约更新成功"),
             Err(e) => error!("更新租约失败 {e}"),
         }
         resp
