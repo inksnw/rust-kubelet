@@ -21,9 +21,11 @@ pub async fn run_pod(o: Pod) {
     let mut client = cri::runtime_service_client::RuntimeServiceClient::connect(url)
         .await
         .expect("Could not create client.");
+
+    let name = o.clone().metadata.name.unwrap();
     let config = cri::PodSandboxConfig {
         metadata: Option::from(cri::PodSandboxMetadata {
-            name: "my_sandbox".to_string(),
+            name,
             uid: "123".to_string(),
             namespace: "default".to_string(),
             attempt: 0,
@@ -44,10 +46,10 @@ pub async fn run_pod(o: Pod) {
         .await
         .expect("Request failed.");
     let pod_sandbox_id = response.get_ref().clone().pod_sandbox_id;
-    info!("沙箱容器id: {:?}", pod_sandbox_id);
+    info!("沙箱容器id: {}", pod_sandbox_id);
 
-    let name = o.metadata.name.unwrap();
-    let mut image = o.spec.unwrap().containers[0].clone().image.unwrap();
+    let name = o.clone().spec.unwrap().clone().containers[0].clone().name;
+    let mut image = o.clone().spec.unwrap().clone().containers[0].clone().image.unwrap();
     image = format!("docker.io/library/{}:latest", image);
 
     let container_config = cri::ContainerConfig {
@@ -77,5 +79,23 @@ pub async fn run_pod(o: Pod) {
         .create_container(request)
         .await
         .expect("Request failed.");
-    info!("容器创建成功,id: {:?}", response.get_ref().clone().container_id);
+    info!("容器创建成功,id: {}", response.get_ref().clone().container_id);
+
+    fetch().await;
+}
+
+async fn fetch() {
+    let url = "http://192.168.50.231:8989";
+    let mut client = cri::runtime_service_client::RuntimeServiceClient::connect(url)
+        .await
+        .expect("Could not create client.");
+
+
+    let request = cri::StatusRequest { verbose: false };
+    let response = client
+        .status(request)
+        .await
+        .expect("Request failed.");
+    let pod_sandbox_id = response.get_ref().clone().status.unwrap().conditions;
+    info!("所有容器状态: {:?}", pod_sandbox_id);
 }
