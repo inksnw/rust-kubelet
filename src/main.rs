@@ -3,7 +3,6 @@ use k8s_openapi::api::core::v1::Pod;
 use kube::{
     api::{Api, ListParams, ResourceExt, WatchEvent},
     Client, Config,
-    runtime::{watcher, WatchStreamExt},
 };
 use tokio;
 use tracing::*;
@@ -43,6 +42,7 @@ async fn my_watch() -> anyhow::Result<()> {
         match status {
             WatchEvent::Added(o) => {
                 info!("Added {}", o.name_any());
+                provider::version().await;
             }
             WatchEvent::Modified(o) => {
                 info!("update {}", o.name_any());
@@ -54,12 +54,4 @@ async fn my_watch() -> anyhow::Result<()> {
         }
     }
     Ok(())
-    //
-    // watcher(pods, ListParams::default()).applied_objects()
-    //     .try_for_each(|p| async move {
-    //         println!("Applied: {}", p.name_any());
-    //         Ok(())
-    //     })
-    //     .await.unwrap();
-    // Ok(())
 }
