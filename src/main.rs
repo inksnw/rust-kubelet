@@ -43,9 +43,7 @@ async fn my_watch() -> anyhow::Result<()> {
     while let Some(status) = stream.try_next().await? {
         match status {
             WatchEvent::Added(o) => {
-                info!("Added {}", o.name_any());
-                provider::version().await;
-                pod::run_pod(o).await;
+                tokio::spawn(pod::run_pod(o));
             }
             WatchEvent::Modified(o) => {
                 info!("update {}", o.name_any());

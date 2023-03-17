@@ -1,4 +1,9 @@
+use std::time::Duration;
+
 use k8s_openapi::api::core::v1::Pod;
+use kube::{Api, Client};
+use kube::api::PatchParams;
+use tokio::time;
 use tracing::*;
 
 use crate::provider::{cri, get_client};
@@ -8,7 +13,7 @@ pub async fn run_pod(o: Pod) {
     let (pod_sandbox_id, config) = create_sandbox(&o).await;
     let container_id = create_container(&o, &pod_sandbox_id, &config).await;
     start_container(&container_id).await;
-    fetch_status().await;
+    tokio::spawn(fetch_status_info());
 }
 
 pub async fn create_container(o: &Pod, pod_sandbox_id: &str, sandbox_config: &PodSandboxConfig) -> String {
@@ -90,21 +95,45 @@ pub async fn create_sandbox(o: &Pod) -> (String, PodSandboxConfig) {
     (pod_sandbox_id, config)
 }
 
-async fn fetch_status() {
-    let request = cri::ListPodSandboxRequest { filter: None };
-    let response = get_client().await
-        .list_pod_sandbox(request)
-        .await
-        .expect("Request failed.");
-    for i in &response.get_ref().items {
-        info!("sandbox状态: {:?}",i );
+async fn fetch_status_info() {
+    loop {
+        let request = cri::ListPodSandboxRequest { filter: None };
+        let response_sandbox = get_client().await
+            .list_pod_sandbox(request)
+            .await
+            .expect("Request failed.");
+
+        let request = cri::ListContainersRequest { filter: None };
+        let response = get_client().await
+            .list_containers(request)
+            .await
+            .expect("Request failed.");
+        for i in &response.get_ref().containers {
+            for j in &response_sandbox.get_ref().items {
+                if i.pod_sandbox_id == j.id {
+                    if i.state == 1 {
+                        info!("{} 空间下的pod: {:?} 状态: {}",
+                        j.metadata.clone().unwrap().namespace,j.metadata.clone().unwrap().name,"running");
+                        update_status(j.metadata.clone().unwrap().name, j.metadata.clone().unwrap().namespace).await;
+                    }
+                }
+            }
+        }
+        time::sleep(Duration::from_secs(4)).await;
     }
-    let request = cri::ListContainersRequest { filter: None };
-    let response = get_client().await
-        .list_containers(request)
-        .await
-        .expect("Request failed.");
-    for i in &response.get_ref().containers {
-        info!("容器状态: {:?}",i );
-    }
+}
+
+async fn update_status(name: String, ns: String) {
+    let client = Client::try_default().await.unwrap();
+    let status_patch = serde_json::json!({
+    "status": {
+        "phase": "Running",
+        "qosClass": "BestEffort"
+    }});
+    let pod_client: Api<Pod> = Api::namespaced(client, &ns);
+    pod_client.patch_status(
+        &name,
+        &PatchParams::default(),
+        &kube::api::Patch::Strategic(status_patch),
+    ).await.expect("TODO: panic message");
 }
