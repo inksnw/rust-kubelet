@@ -128,8 +128,25 @@ async fn update_status(name: String, ns: String) {
     let status_patch = serde_json::json!({
     "status": {
         "phase": "Running",
-        "qosClass": "BestEffort"
-    }});
+        "qosClass": "BestEffort",
+        "containerStatuses": [
+            {
+                "containerID": "containerd://bbe48a0007e9d2eca406acc6ba75041ca6e163bbd4d7490ab3248a5eeb1797be",
+                "image": "docker.io/openebs/provisioner-localpv:3.3.0",
+                "imageID": "docker.io/openebs/provisioner-localpv@sha256:9944beedeb5ad33b1013d62da026c3ac31f29238b378335e40ded2dcfe2c56f4",
+                "name": "openebs-provisioner-hostpath",
+                "ready": true,
+                "restartCount": 1,
+                "started": true,
+                "state": {
+                    "running": {
+                        "startedAt": "2023-03-17T01:02:10Z"
+                    }
+                }
+            }
+        ]
+    }
+});
     let pod_client: Api<Pod> = Api::namespaced(client, &ns);
     pod_client.patch_status(
         &name,
