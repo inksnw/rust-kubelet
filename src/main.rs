@@ -7,6 +7,8 @@ use kube::{
 use tokio;
 use tracing::*;
 
+use provider::pod;
+
 mod kubelet;
 mod nodemod;
 mod provider;
@@ -43,7 +45,7 @@ async fn my_watch() -> anyhow::Result<()> {
             WatchEvent::Added(o) => {
                 info!("Added {}", o.name_any());
                 provider::version().await;
-                provider::run_pod(o).await;
+                pod::run_pod(o).await;
             }
             WatchEvent::Modified(o) => {
                 info!("update {}", o.name_any());
